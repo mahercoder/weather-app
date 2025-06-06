@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -18,20 +18,18 @@ const Weather: React.FC = () => {
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
     fetchSearchHistory();
-    
-    // Check for URL query parameters
     const lat = searchParams.get('lat');
     const lon = searchParams.get('long') || searchParams.get('lon');
-    
-    if (lat && lon) {
+    if (lat && lon && !fetchedRef.current) {
       const latitude = parseFloat(lat);
       const longitude = parseFloat(lon);
-      
       if (!isNaN(latitude) && !isNaN(longitude)) {
         fetchWeatherByCoordinates(latitude, longitude);
+        fetchedRef.current = true;
       } else {
         toast.error('Invalid coordinates provided in URL');
       }
