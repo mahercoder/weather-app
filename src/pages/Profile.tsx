@@ -17,7 +17,7 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchSearchHistory = async () => {
       try {
-        const history = await getSearchHistory(10);
+        const history = await getSearchHistory(5);
         setSearchHistory(history);
       } catch (error) {
         console.error('Error fetching search history:', error);
