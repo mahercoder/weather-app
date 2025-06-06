@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Input from '../components/ui/Input';
@@ -6,11 +7,12 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import WeatherCard from '../components/WeatherCard';
 import SearchHistory from '../components/SearchHistory';
-import { getWeatherByCity } from '../services/weatherService';
+import { getWeatherByCity, getWeatherByCoordinates } from '../services/weatherService';
 import { addToSearchHistory, getSearchHistory } from '../services/searchHistoryService';
 import { WeatherResponse, SearchHistoryItem } from '../types/weather';
 
 const Weather: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [location, setLocation] = useState('');
   const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
@@ -19,7 +21,22 @@ const Weather: React.FC = () => {
 
   useEffect(() => {
     fetchSearchHistory();
-  }, []);
+    
+    // Check for URL query parameters
+    const lat = searchParams.get('lat');
+    const lon = searchParams.get('long') || searchParams.get('lon');
+    
+    if (lat && lon) {
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lon);
+      
+      if (!isNaN(latitude) && !isNaN(longitude)) {
+        fetchWeatherByCoordinates(latitude, longitude);
+      } else {
+        toast.error('Invalid coordinates provided in URL');
+      }
+    }
+  }, [searchParams]);
 
   const fetchSearchHistory = async () => {
     try {
@@ -27,6 +44,27 @@ const Weather: React.FC = () => {
       setSearchHistory(history);
     } catch (error) {
       console.error('Error fetching search history:', error);
+    }
+  };
+
+  const fetchWeatherByCoordinates = async (lat: number, lon: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const weatherData = await getWeatherByCoordinates(lat, lon);
+      setWeather(weatherData);
+      
+      // Add to search history in Supabase
+      await addToSearchHistory(weatherData.name);
+      await fetchSearchHistory();
+      
+      toast.success(`Weather data for ${weatherData.name} loaded!`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to fetch weather data');
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch weather data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,7 +129,7 @@ const Weather: React.FC = () => {
             <div className="p-4">
               <form onSubmit={handleSearch} className="mb-6">
                 <h2 className="text-lg font-medium text-gray-800 mb-3">Search Location</h2>
-                <div className="flex">
+                <div className="flex h-10">
                   <Input
                     placeholder="Enter city name..."
                     value={location}
@@ -121,9 +159,7 @@ const Weather: React.FC = () => {
           {error ? (
             <Card className="p-6 text-center">
               <div className="text-red-600 mb-4">
-                <svg className="h-12 w-12 mx-auto\" fill="none\" stroke="currentColor\" viewBox="0 0 24 24">
-                  <path strokeLinecap="round\" strokeLinejoin="round\" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Search size={48} className="mx-auto" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Error</h3>
               <p className="text-gray-600">{error}</p>

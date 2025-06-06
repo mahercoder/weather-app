@@ -99,6 +99,89 @@ export const getWeatherByCity = async (city: string): Promise<WeatherResponse> =
   }
 };
 
+export const getWeatherByCoordinates = async (lat: number, lon: number): Promise<WeatherResponse> => {
+  if (!API_KEY) {
+    throw new Error('OpenWeatherMap API key is not set. Please add it to your .env file as VITE_OPENWEATHER_API_KEY.');
+  }
+
+  try {
+    // Fetch weather data using coordinates
+    const response = await fetch(
+      `${API_BASE_URL}/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely,hourly,daily,alerts&units=metric&appid=${API_KEY}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch weather data. Please try again.');
+    }
+
+    const data = await response.json();
+
+    // Get location name using reverse geocoding
+    const geoResponse = await fetch(
+      `${API_BASE_URL}/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
+    );
+
+    let locationName = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+    let country = '';
+
+    if (geoResponse.ok) {
+      const geoData = await geoResponse.json();
+      if (geoData.length > 0) {
+        locationName = geoData[0].name;
+        country = geoData[0].country;
+      }
+    }
+
+    // Transform the response to match our WeatherResponse type
+    return {
+      coord: {
+        lon: lon,
+        lat: lat
+      },
+      weather: [{
+        id: data.current.weather[0].id,
+        main: data.current.weather[0].main,
+        description: data.current.weather[0].description,
+        icon: data.current.weather[0].icon
+      }],
+      base: 'stations',
+      main: {
+        temp: data.current.temp,
+        feels_like: data.current.feels_like,
+        temp_min: data.current.temp, // OneCall API doesn't provide min/max
+        temp_max: data.current.temp, // OneCall API doesn't provide min/max
+        pressure: data.current.pressure,
+        humidity: data.current.humidity
+      },
+      visibility: data.current.visibility,
+      wind: {
+        speed: data.current.wind_speed,
+        deg: data.current.wind_deg
+      },
+      clouds: {
+        all: data.current.clouds
+      },
+      dt: data.current.dt,
+      sys: {
+        type: 1,
+        id: 1,
+        country: country,
+        sunrise: data.current.sunrise,
+        sunset: data.current.sunset
+      },
+      timezone: data.timezone_offset,
+      id: 0, // Not available in OneCall API
+      name: locationName,
+      cod: 200
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred. Please try again.');
+  }
+};
+
 export const getWeatherIcon = (iconCode: string): string => {
   return `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
 };
